@@ -3,7 +3,7 @@ import AppKit
 @MainActor
 final class MenuBarPanelController: NSObject {
     private enum Layout {
-        static let itemSize = NSSize(width: 34, height: 34)
+        static let itemHeight: CGFloat = 34
         static let itemSpacing: CGFloat = 6
         static let horizontalPadding: CGFloat = 10
         static let verticalPadding: CGFloat = 9
@@ -39,7 +39,7 @@ final class MenuBarPanelController: NSObject {
             return
         }
 
-        let panelSize = desiredSize(itemCount: items.count, screen: screen)
+        let panelSize = desiredSize(items: items, screen: screen)
         let anchorFrame = anchorWindow.frame
         let x = min(
             max(anchorFrame.maxX - panelSize.width, screen.visibleFrame.minX + 4),
@@ -121,7 +121,7 @@ final class MenuBarPanelController: NSObject {
         }
 
         if items.isEmpty {
-            let label = NSTextField(labelWithString: "메뉴 막대 항목이 없습니다")
+            let label = NSTextField(labelWithString: "노치에 가려진 항목이 없습니다")
             label.textColor = .secondaryLabelColor
             label.alignment = .center
             stackView.addArrangedSubview(label)
@@ -129,7 +129,10 @@ final class MenuBarPanelController: NSObject {
         }
 
         for item in items {
-            let button = ActionButton(frame: NSRect(origin: .zero, size: Layout.itemSize))
+            let buttonWidth = item.preferredButtonWidth
+            let button = ActionButton(
+                frame: NSRect(x: 0, y: 0, width: buttonWidth, height: Layout.itemHeight)
+            )
             button.bezelStyle = .texturedRounded
             button.isBordered = false
             button.imagePosition = .imageOnly
@@ -144,24 +147,23 @@ final class MenuBarPanelController: NSObject {
             }
             button.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
-                button.widthAnchor.constraint(equalToConstant: Layout.itemSize.width),
-                button.heightAnchor.constraint(equalToConstant: Layout.itemSize.height)
+                button.widthAnchor.constraint(equalToConstant: buttonWidth),
+                button.heightAnchor.constraint(equalToConstant: Layout.itemHeight)
             ])
             stackView.addArrangedSubview(button)
         }
     }
 
-    private func desiredSize(itemCount: Int, screen: NSScreen) -> NSSize {
+    private func desiredSize(items: [MenuBarItem], screen: NSScreen) -> NSSize {
         return NSSize(
             width: PanelLayoutMetrics.width(
-                itemCount: itemCount,
-                itemWidth: Layout.itemSize.width,
+                itemWidths: items.map(\.preferredButtonWidth),
                 spacing: Layout.itemSpacing,
                 horizontalPadding: Layout.horizontalPadding,
                 emptyWidth: Layout.emptyWidth,
                 maximumWidth: screen.visibleFrame.width - 8
             ),
-            height: Layout.itemSize.height + Layout.verticalPadding * 2
+            height: Layout.itemHeight + Layout.verticalPadding * 2
         )
     }
 

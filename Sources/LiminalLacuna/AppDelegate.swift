@@ -3,26 +3,27 @@ import ApplicationServices
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private enum StatusItemConfiguration {
+        static let autosaveName = "LiminalLacuna.MainStatusItem"
+    }
+
     private let scanner = MenuBarScanner()
+    private let iconSnapshotter = MenuBarIconSnapshotter()
     private let activator = MenuBarItemActivator()
-    private let hiddenSection = HiddenSectionController()
     private lazy var panelController = MenuBarPanelController { [weak self] item, invocation in
         self?.activate(item, invocation: invocation)
     }
 
     private var statusItem: NSStatusItem?
+    private var isPreparingPanel = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        hiddenSection.install()
         configureStatusItem()
-        if AXIsProcessTrusted() {
-            hiddenSection.collapse()
-        }
     }
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.autosaveName = HiddenSectionController.mainAutosaveName
+        item.autosaveName = StatusItemConfiguration.autosaveName
 
         guard let button = item.button else {
             return
@@ -61,25 +62,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        hiddenSection.collapse()
-        let items = scanner.scan(excluding: ProcessInfo.processInfo.processIdentifier)
-        panelController.present(items: items, relativeTo: button)
+        guard ensureScreenCapturePermission() else {
+            showScreenCapturePermissionExplanation()
+            return
+        }
+
+        guard !isPreparingPanel else {
+            return
+        }
+        isPreparingPanel = true
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { isPreparingPanel = false }
+
+            let scannedItems = scanner.scan(excluding: ProcessInfo.processInfo.processIdentifier)
+            let clippedItems = await iconSnapshotter.notchClippedItems(from: scannedItems)
+            panelController.present(items: clippedItems, relativeTo: button)
+        }
     }
 
     private func activate(_ item: MenuBarItem, invocation: MenuBarInvocation) {
         panelController.close()
 
-        hiddenSection.reveal()
         Task { @MainActor [weak self] in
             guard let self else { return }
-            try? await Task.sleep(for: .milliseconds(140))
+            try? await Task.sleep(for: .milliseconds(100))
             let result = activator.activate(item, invocation: invocation)
             if case let .failed(message) = result {
-                hiddenSection.collapse()
                 presentError(message)
-                return
             }
-            hiddenSection.collapseAfterNextInteraction()
         }
     }
 
@@ -92,12 +104,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return AXIsProcessTrustedWithOptions(options)
     }
 
+    private func ensureScreenCapturePermission() -> Bool {
+        if iconSnapshotter.hasScreenCapturePermission {
+            return true
+        }
+        return iconSnapshotter.requestScreenCapturePermission()
+    }
+
     private func showPermissionExplanation() {
         let alert = NSAlert()
         alert.messageText = "손쉬운 사용 권한이 필요합니다"
         alert.informativeText = "다른 앱의 메뉴 막대 항목을 찾고 원래 동작을 실행하려면 시스템 설정의 개인정보 보호 및 보안 > 손쉬운 사용에서 Liminal Lacuna를 허용해 주세요."
         alert.addButton(withTitle: "확인")
         alert.runModal()
+    }
+
+    private func showScreenCapturePermissionExplanation() {
+        let alert = NSAlert()
+        alert.messageText = "화면 기록 권한이 필요합니다"
+        alert.informativeText = "메뉴 막대에 실제로 그려진 아이콘을 그대로 가져오려면 시스템 설정의 개인정보 보호 및 보안 > 화면 및 시스템 오디오 녹화에서 Liminal Lacuna를 허용해 주세요. 허용한 뒤 앱을 다시 실행해 주세요."
+        alert.addButton(withTitle: "설정 열기")
+        alert.addButton(withTitle: "나중에")
+        if alert.runModal() == .alertFirstButtonReturn {
+            openScreenCaptureSettings()
+        }
     }
 
     private func presentError(_ message: String) {
@@ -115,16 +145,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        let visibilityTitle = hiddenSection.isCollapsed ? "원본 아이콘 보기" : "원본 아이콘 숨기기"
-        menu.addItem(
-            withTitle: visibilityTitle,
-            action: #selector(toggleOriginalItems),
-            keyEquivalent: ""
-        ).target = self
-        menu.addItem(.separator())
         menu.addItem(
             withTitle: "손쉬운 사용 설정 열기",
             action: #selector(openAccessibilitySettings),
+            keyEquivalent: ""
+        ).target = self
+        menu.addItem(
+            withTitle: "화면 기록 설정 열기",
+            action: #selector(openScreenCaptureSettings),
             keyEquivalent: ""
         ).target = self
         menu.addItem(.separator())
@@ -147,9 +175,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(url)
     }
 
-    @objc private func toggleOriginalItems() {
-        panelController.close()
-        hiddenSection.toggle()
+    @objc private func openScreenCaptureSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+        ) else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func terminate() {

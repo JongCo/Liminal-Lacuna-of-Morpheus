@@ -22,14 +22,11 @@ final class MenuBarScanner {
             }
 
             let ownerName = application.localizedName ?? application.bundleIdentifier ?? "알 수 없는 앱"
-            let icon = application.icon ?? fallbackIcon
-
             for element in menuBarItems(below: extrasMenuBar) {
                 guard let item = makeItem(
                     from: element,
                     ownerPID: pid,
-                    ownerName: ownerName,
-                    ownerIcon: icon
+                    ownerName: ownerName
                 ), seen.insert(item.id).inserted else {
                     continue
                 }
@@ -72,8 +69,7 @@ final class MenuBarScanner {
     private func makeItem(
         from element: AXUIElement,
         ownerPID: pid_t,
-        ownerName: String,
-        ownerIcon: NSImage
+        ownerName: String
     ) -> MenuBarItem? {
         guard let position = AccessibilityHelpers.point(
             of: element,
@@ -97,14 +93,16 @@ final class MenuBarScanner {
             title
         )
         let id = "\(ownerPID)|\(identifier)|\(Int(frame.minX))|\(Int(frame.width))"
+        let snapshotKey = "\(ownerPID)|\(identifier)"
 
         return MenuBarItem(
             id: id,
+            snapshotKey: snapshotKey,
             ownerPID: ownerPID,
             ownerName: ownerName,
             title: title,
             frame: frame,
-            icon: ownerIcon.copy() as? NSImage ?? ownerIcon,
+            icon: fallbackIcon,
             accessibilityElement: element
         )
     }
