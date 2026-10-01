@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: .milliseconds(100))
-            let result = activator.activate(item, invocation: invocation)
+            let result = await activator.activate(item, invocation: invocation)
             if case let .failed(message) = result {
                 presentError(message)
             }
