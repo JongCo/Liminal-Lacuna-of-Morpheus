@@ -1,5 +1,15 @@
 # Liminal Lacuna of Morpheus
 
+## 개발 종료 — 2026년 10월 16일
+
+macOS 27에 메뉴 막대 공간이 부족할 때 가려진 아이콘을 표시하는 기본 오버플로 버튼(`»`)이 추가되었습니다. 이 프로젝트가 해결하려던 핵심 문제를 운영체제에서 직접 해결하게 되어 개발을 종료합니다.
+
+같은 문제를 다루던 [HiddenBarIcons의 개발 종료 공지](https://github.com/mekedron/HiddenBarIcons#hiddenbaricons)에서도 macOS 27의 기본 기능 추가를 확인할 수 있습니다.
+
+기존 소스와 빌드 방법은 기록으로 남깁니다. 추가 기능 개발과 향후 macOS 호환성 대응은 진행하지 않으며, 이 앱의 macOS 27 동작 여부는 검증하지 않았습니다.
+
+## 프로젝트 소개
+
 `Liminal Lacuna of Morpheus`는 MacBook의 노치 때문에 보이지 않는 메뉴 막대 항목을 별도의 가로 패널에서 사용할 수 있게 해 주는 macOS 유틸리티입니다.
 
 대표 아이콘을 누르면 노치에 가려진 항목만 아래쪽 패널에 표시됩니다. 화면에 정상적으로 보이는 Wi‑Fi, Bluetooth, 배터리 등의 항목은 기존 메뉴 막대에 그대로 남습니다.
